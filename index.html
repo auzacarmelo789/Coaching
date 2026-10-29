@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coaching Log</title>
+<style>
+:root{--bg:#eef1ec;--card:#fff;--ink:#1b2a24;--mute:#5d6b64;--line:#d5dcd5;--accent:#1f6f5c;--accent-ink:#fff;--warn:#b3402a;--soft:#e1ece6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Avenir Next","Segoe UI",system-ui,sans-serif}
+header{padding:20px 16px 0;max-width:900px;margin:0 auto}
+h1{margin:0;font-size:1.6rem;letter-spacing:-.02em}
+.sub{color:var(--mute);margin:2px 0 14px}
+nav{display:flex;gap:4px;border-bottom:2px solid var(--line);overflow-x:auto}
+nav button{background:none;border:0;padding:10px 16px;font:inherit;font-weight:600;color:var(--mute);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
+nav button[aria-selected=true]{color:var(--accent);border-color:var(--accent)}
+main{max-width:900px;margin:0 auto;padding:16px}
+section[hidden]{display:none}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+h2{font-size:1.1rem;margin:0 0 12px}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:.9rem;font-weight:600}
+.wide{grid-column:1/-1}
+input,textarea,select{font:inherit;font-weight:400;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);width:100%}
+textarea{min-height:70px;resize:vertical}
+:focus-visible{outline:3px solid #7cc4ad;outline-offset:1px}
+button.primary{background:var(--accent);color:var(--accent-ink);border:0;border-radius:6px;padding:10px 18px;font:inherit;font-weight:600;cursor:pointer}
+button.ghost{background:none;border:1px solid var(--line);border-radius:6px;padding:6px 12px;font:inherit;font-size:.85rem;cursor:pointer;color:var(--ink)}
+button.ghost.del{color:var(--warn)}
+.actions{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.item{border-top:1px solid var(--line);padding:12px 0}
+.item:first-child{border-top:0}
+.row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+.who{font-weight:700}
+.meta{color:var(--mute);font-size:.88rem}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.tag{background:var(--soft);color:var(--accent);border-radius:99px;padding:2px 10px;font-size:.82rem;font-weight:600}
+.notes{margin:6px 0 0;white-space:pre-wrap}
+.btns{display:flex;gap:6px;margin-top:8px}
+.empty{color:var(--mute);padding:8px 0}
+.stats{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px}
+.stat b{display:block;font-size:1.5rem;line-height:1.1}
+.stat span{color:var(--mute);font-size:.85rem}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.bar select,.bar input{width:auto;min-width:150px}
+.durTitle{font-size:.9rem;font-weight:600;display:block;margin-bottom:4px}.durRow{display:flex;gap:8px}.durRow label{flex:1}
+.today{border-left:4px solid var(--accent);padding-left:10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Coaching Log</h1>
+  <p class="sub">Sessions, drills, clients and upcoming bookings. Saved automatically in this browser.</p>
+  <nav role="tablist">
+    <button role="tab" data-tab="log" aria-selected="true">Sessions</button>
+    <button role="tab" data-tab="book" aria-selected="false">Bookings</button>
+    <button role="tab" data-tab="clients" aria-selected="false">Clients</button>
+    <button role="tab" data-tab="backup" aria-selected="false">Backup</button>
+  </nav>
+</header>
+<main>
+<div class="panel" id="startBanner" hidden>
+    <h2>Welcome back? Restore your backup</h2>
+    <div class="pasteBox">
+      <label>Paste your backup text here<textarea class="pasteArea" placeholder="Open your backup .json file in any text editor, copy everything, and paste it here"></textarea></label>
+      <div class="actions" style="margin-top:8px"><button class="primary pasteGo" type="button">Restore pasted backup</button></div>
+    </div>
+  </div>
+
+<section id="tab-log">
+  <div class="panel">
+    <h2 id="sessTitle">Log a session</h2>
+    <form id="sessForm">
+      <input type="hidden" name="id">
+      <label>Date<input type="date" name="date" required></label>
+      <label>Client name<input name="client" list="clientList" required autocomplete="off"></label>
+      <div class="durField"><span class="durTitle">Time spent</span><div class="durRow"><label>Hours<input type="number" name="hrs" min="0" max="24" step="1" value="1"></label><label>Minutes<input type="number" name="mins" min="0" max="59" step="5" value="0"></label></div></div>
+      <label class="wide">Drills done (separate with commas)<input name="drills" list="drillList" placeholder="e.g. Footwork ladder, Serve toss, Cone weave"></label>
+      <label class="wide">Notes (progress, things to work on next time)<textarea name="notes"></textarea></label>
+      <div class="actions wide"><button class="primary" type="submit" id="sessSave">Save session</button><button class="ghost" type="button" id="sessCancel" hidden>Cancel edit</button></div>
+    </form>
+  </div>
+  <div class="panel">
+    <h2>Session history</h2>
+    <div class="bar">
+      <select id="fClient"><option value="">All clients</option></select>
+      <input id="fText" type="search" placeholder="Search drills or notes">
+    </div>
+    <div id="sessList"></div>
+  </div>
+</section>
+
+<section id="tab-book" hidden>
+  <div class="panel">
+    <h2 id="bookTitle">Add a booking</h2>
+    <form id="bookForm">
+      <input type="hidden" name="id">
+      <label>Date<input type="date" name="date" required></label>
+      <label>Start time<input type="time" name="time" required></label>
+      <label>Client name<input name="client" list="clientList" required autocomplete="off"></label>
+      <div class="durField"><span class="durTitle">Length</span><div class="durRow"><label>Hours<input type="number" name="hrs" min="0" max="24" step="1" value="1"></label><label>Minutes<input type="number" name="mins" min="0" max="59" step="5" value="0"></label></div></div>
+      <label class="wide">Plan or notes (drills to cover, location)<textarea name="notes"></textarea></label>
+      <div class="actions wide"><button class="primary" type="submit">Save booking</button><button class="ghost" type="button" id="bookCancel" hidden>Cancel edit</button></div>
+    </form>
+  </div>
+  <div class="panel"><h2>Upcoming</h2><div id="upList"></div></div>
+  <div class="panel"><h2>Past bookings</h2><div id="pastList"></div></div>
+</section>
+
+<section id="tab-clients" hidden>
+  <div class="panel"><h2>Overview</h2><div class="stats" id="stats"></div></div>
+  <div class="panel"><h2>Clients</h2><div id="clientSummary"></div></div>
+</section>
+
+<section id="tab-backup" hidden>
+  <div class="panel">
+    <h2>Back up your data</h2>
+    <p>Your log lives in this browser only. Clearing browser data or switching devices will lose it, so download a backup now and then.</p>
+    <div class="actions">
+      <button class="primary" id="exportJson">Download backup (.json)</button>
+      <button class="ghost" id="exportCsv">Download sessions (.csv)</button>
+      <label class="ghost" style="cursor:pointer;font-weight:400;display:inline-block">Restore from backup<input type="file" id="importFile" accept=".json" hidden></label>
+    </div>
+    <p class="meta" id="backupMsg" role="status"></p>
+    <h2 style="margin-top:16px">Paste a backup</h2>
+    <div class="pasteBox">
+      <label>Paste your backup text here<textarea class="pasteArea" placeholder="Open your backup .json file in any text editor, copy everything, and paste it here"></textarea></label>
+      <div class="actions" style="margin-top:8px"><button class="primary pasteGo" type="button">Restore pasted backup</button></div>
+    </div>
+  </div>
+</section>
+
+</main>
+<datalist id="clientList"></datalist>
+<datalist id="drillList"></datalist>
+
+<script>
+const KEY = "coachingLogV1";
+let db = { sessions: [], bookings: [] };
+
+function load(){
+  try { const raw = localStorage.getItem(KEY); if (raw) { const d = JSON.parse(raw); db.sessions = d.sessions || []; db.bookings = d.bookings || []; } }
+  catch(e){ console.warn("Could not load saved data", e); }
+}
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(db)); }
+  catch(e){ alert("This browser blocked saving. Use Backup to download your data."); }
+}
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+const fmtDate = d => new Date(d + "T00:00").toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric", year:"numeric" });
+const fmtTime = t => { const [h,m] = t.split(":"); const d = new Date(); d.setHours(+h, +m); return d.toLocaleTimeString([], { hour:"numeric", minute:"2-digit" }); };
+const fmtDur = m => m >= 60 ? Math.floor(m/60) + " hr" + (m%60 ? " " + (m%60) + " min" : "") : m + " min";
+const splitDrills = s => s.split(",").map(x => x.trim()).filter(Boolean);
+const norm = s => s.trim().toLowerCase();
+
+function getMin(f){ return (parseInt(f.hrs.value,10)||0)*60 + (parseInt(f.mins.value,10)||0); }
+function setMin(f,m){ f.hrs.value = Math.floor(m/60); f.mins.value = m%60; }
+function el(tag, cls, text){ const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function btn(label, cls, fn){ const b = el("button", "ghost " + (cls||""), label); b.type = "button"; b.onclick = fn; return b; }
+function tags(list){ const w = el("div","tags"); list.forEach(t => w.appendChild(el("span","tag",t))); return w; }
+
+/* Tabs */
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-selected", x === b));
+  ["log","book","clients","backup"].forEach(t => $("#tab-" + t).hidden = t !== b.dataset.tab);
+  render();
+});
+
+/* Suggestions */
+function clientNames(){
+  const map = new Map();
+  [...db.sessions, ...db.bookings].forEach(x => { if (!map.has(norm(x.client))) map.set(norm(x.client), x.client.trim()); });
+  return [...map.values()].sort((a,b) => a.localeCompare(b));
+}
+function refreshLists(){
+  const cl = $("#clientList"); cl.innerHTML = "";
+  clientNames().forEach(n => { const o = el("option"); o.value = n; cl.appendChild(o); });
+  const dl = $("#drillList"); dl.innerHTML = "";
+  const seen = new Set();
+  db.sessions.forEach(s => s.drills.forEach(d => seen.add(d)));
+  [...seen].sort().forEach(d => { const o = el("option"); o.value = d; dl.appendChild(o); });
+  const f = $("#fClient"), cur = f.value;
+  f.innerHTML = '<option value="">All clients</option>';
+  clientNames().forEach(n => { const o = el("option", null, n); o.value = n; f.appendChild(o); });
+  f.value = cur;
+}
+
+/* Sessions */
+const sf = $("#sessForm");
+sf.date.value = today();
+sf.onsubmit = e => {
+  e.preventDefault();
+  if (getMin(sf) < 1) { alert("Enter the time spent in hours and minutes."); return; }
+  const rec = { id: sf.id.value || uid(), date: sf.date.value, client: sf.client.value.trim(), minutes: getMin(sf), drills: splitDrills(sf.drills.value), notes: sf.notes.value.trim() };
+  const i = db.sessions.findIndex(s => s.id === rec.id);
+  if (i >= 0) db.sessions[i] = rec; else db.sessions.push(rec);
+  save(); resetSessForm(); render();
+};
+function resetSessForm(){
+  const keepDate = sf.date.value;
+  sf.reset(); sf.id.value = ""; sf.date.value = keepDate || today(); setMin(sf, 60);
+  $("#sessTitle").textContent = "Log a session"; $("#sessSave").textContent = "Save session"; $("#sessCancel").hidden = true;
+}
+$("#sessCancel").onclick = resetSessForm;
+function editSession(s){
+  sf.id.value = s.id; sf.date.value = s.date; sf.client.value = s.client; setMin(sf, s.minutes); sf.drills.value = s.drills.join(", "); sf.notes.value = s.notes;
+  $("#sessTitle").textContent = "Edit session"; $("#sessSave").textContent = "Update session"; $("#sessCancel").hidden = false;
+  sf.scrollIntoView({ behavior:"smooth" });
+}
+function renderSessions(){
+  const box = $("#sessList"); box.innerHTML = "";
+  const c = $("#fClient").value, q = norm($("#fText").value);
+  const list = db.sessions.filter(s => (!c || norm(s.client) === norm(c)) && (!q || norm(s.drills.join(" ") + " " + s.notes).includes(q)))
+    .sort((a,b) => b.date.localeCompare(a.date));
+  if (!list.length){ box.appendChild(el("p","empty", db.sessions.length ? "No sessions match this filter." : "No sessions yet. Fill in the form above and save your first one.")); return; }
+  list.forEach(s => {
+    const it = el("div","item"), r = el("div","row");
+    r.appendChild(el("span","who",s.client));
+    r.appendChild(el("span","meta", fmtDate(s.date) + "  •  " + fmtDur(s.minutes)));
+    it.appendChild(r);
+    if (s.drills.length) it.appendChild(tags(s.drills));
+    if (s.notes) it.appendChild(el("p","notes",s.notes));
+    const b = el("div","btns");
+    b.appendChild(btn("Edit","",() => editSession(s)));
+    b.appendChild(btn("Delete","del",() => { if (confirm("Delete this session?")){ db.sessions = db.sessions.filter(x => x.id !== s.id); save(); render(); } }));
+    it.appendChild(b); box.appendChild(it);
+  });
+}
+$("#fClient").onchange = renderSessions; $("#fText").oninput = renderSessions;
+
+/* Bookings */
+const bf = $("#bookForm");
+bf.date.value = today();
+bf.onsubmit = e => {
+  e.preventDefault();
+  if (getMin(bf) < 1) { alert("Enter the length in hours and minutes."); return; }
+  const rec = { id: bf.id.value || uid(), date: bf.date.value, time: bf.time.value, client: bf.client.value.trim(), minutes: getMin(bf), notes: bf.notes.value.trim() };
+  const i = db.bookings.findIndex(b => b.id === rec.id);
+  if (i >= 0) db.bookings[i] = rec; else db.bookings.push(rec);
+  save(); resetBookForm(); render();
+};
+function resetBookForm(){
+  bf.reset(); bf.id.value = ""; bf.date.value = today(); setMin(bf, 60);
+  $("#bookTitle").textContent = "Add a booking"; $("#bookCancel").hidden = true;
+}
+$("#bookCancel").onclick = resetBookForm;
+function editBooking(b){
+  bf.id.value = b.id; bf.date.value = b.date; bf.time.value = b.time; bf.client.value = b.client; setMin(bf, b.minutes); bf.notes.value = b.notes;
+  $("#bookTitle").textContent = "Edit booking"; $("#bookCancel").hidden = false; bf.scrollIntoView({ behavior:"smooth" });
+}
+function logFromBooking(b){
+  db.bookings = db.bookings.filter(x => x.id !== b.id);
+  db.sessions.push({ id: uid(), date: b.date, client: b.client, minutes: b.minutes, drills: [], notes: b.notes });
+  save(); render();
+  document.querySelector('[data-tab="log"]').click();
+  const s = db.sessions[db.sessions.length - 1]; editSession(s);
+}
+function bookingItem(b, isPast){
+  const it = el("div","item" + (b.date === today() ? " today" : "")), r = el("div","row");
+  r.appendChild(el("span","who",b.client));
+  r.appendChild(el("span","meta", fmtDate(b.date) + " at " + fmtTime(b.time) + "  •  " + fmtDur(b.minutes)));
+  it.appendChild(r);
+  if (b.notes) it.appendChild(el("p","notes",b.notes));
+  const bt = el("div","btns");
+  bt.appendChild(btn(isPast ? "Log as session" : "Done: log session","",() => logFromBooking(b)));
+  bt.appendChild(btn("Edit","",() => editBooking(b)));
+  bt.appendChild(btn("Delete","del",() => { if (confirm("Delete this booking?")){ db.bookings = db.bookings.filter(x => x.id !== b.id); save(); render(); } }));
+  it.appendChild(bt); return it;
+}
+function renderBookings(){
+  const t = today(), key = b => b.date + b.time;
+  const up = db.bookings.filter(b => b.date >= t).sort((a,b) => key(a).localeCompare(key(b)));
+  const past = db.bookings.filter(b => b.date < t).sort((a,b) => key(b).localeCompare(key(a)));
+  const u = $("#upList"), p = $("#pastList"); u.innerHTML = ""; p.innerHTML = "";
+  if (!up.length) u.appendChild(el("p","empty","Nothing booked ahead. Add your next lesson above."));
+  up.forEach(b => u.appendChild(bookingItem(b,false)));
+  if (!past.length) p.appendChild(el("p","empty","No past bookings waiting to be logged."));
+  past.forEach(b => p.appendChild(bookingItem(b,true)));
+}
+
+/* Clients */
+function renderClients(){
+  const totalMin = db.sessions.reduce((a,s) => a + s.minutes, 0);
+  const st = $("#stats"); st.innerHTML = "";
+  [[db.sessions.length,"sessions logged"],[(totalMin/60).toFixed(1),"hours coached"],[clientNames().length,"clients"],[db.bookings.filter(b => b.date >= today()).length,"upcoming bookings"]]
+    .forEach(([n,l]) => { const d = el("div","stat"); d.appendChild(el("b",null,String(n))); d.appendChild(el("span",null,l)); st.appendChild(d); });
+  const box = $("#clientSummary"); box.innerHTML = "";
+  const names = clientNames();
+  if (!names.length){ box.appendChild(el("p","empty","Clients appear here once you log a session or booking.")); return; }
+  names.forEach(n => {
+    const ss = db.sessions.filter(s => norm(s.client) === norm(n)).sort((a,b) => b.date.localeCompare(a.date));
+    const mins = ss.reduce((a,s) => a + s.minutes, 0);
+    const drillCount = {}; ss.forEach(s => s.drills.forEach(d => drillCount[d] = (drillCount[d]||0) + 1));
+    const top = Object.entries(drillCount).sort((a,b) => b[1]-a[1]).slice(0,8).map(([d,c]) => c > 1 ? d + " ×" + c : d);
+    const it = el("div","item"), r = el("div","row");
+    r.appendChild(el("span","who",n));
+    r.appendChild(el("span","meta", ss.length + " sessions  •  " + fmtDur(mins) + (ss[0] ? "  •  last " + fmtDate(ss[0].date) : "")));
+    it.appendChild(r);
+    if (top.length) it.appendChild(tags(top));
+    const b = el("div","btns");
+    b.appendChild(btn("View history","",() => { document.querySelector('[data-tab="log"]').click(); $("#fClient").value = n; renderSessions(); }));
+    it.appendChild(b); box.appendChild(it);
+  });
+}
+
+/* Backup */
+function download(name, text, type){
+  const a = el("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+$("#exportJson").onclick = () => { download("coaching-log-backup-" + today() + ".json", JSON.stringify(db, null, 2), "application/json"); $("#backupMsg").textContent = "Backup downloaded."; };
+$("#exportCsv").onclick = () => {
+  const q = v => '"' + String(v).replace(/"/g,'""') + '"';
+  const rows = [["Date","Client","Minutes","Drills","Notes"].map(q).join(",")];
+  db.sessions.slice().sort((a,b) => a.date.localeCompare(b.date)).forEach(s => rows.push([s.date,s.client,s.minutes,s.drills.join("; "),s.notes].map(q).join(",")));
+  download("coaching-sessions-" + today() + ".csv", rows.join("\n"), "text/csv"); $("#backupMsg").textContent = "Sessions exported.";
+};
+function restoreFromText(text){
+  const msg = $("#backupMsg");
+  try {
+    const d = JSON.parse(text.trim());
+    if (!Array.isArray(d.sessions) || !Array.isArray(d.bookings)) throw new Error("bad format");
+    if (db.sessions.length + db.bookings.length > 0 && !confirm("Replace everything in this log with the backup (" + d.sessions.length + " sessions, " + d.bookings.length + " bookings)?")) return false;
+    db = { sessions: d.sessions, bookings: d.bookings }; save(); render();
+    msg.textContent = "Backup restored: " + d.sessions.length + " sessions, " + d.bookings.length + " bookings.";
+    return true;
+  } catch(err){
+    alert("That text is not a Coaching Log backup. Copy the whole contents of the .json file, from the first { to the last }.");
+    return false;
+  }
+}
+document.querySelectorAll(".pasteGo").forEach(b => b.onclick = () => {
+  const area = b.closest(".pasteBox").querySelector(".pasteArea");
+  if (!area.value.trim()) { alert("Paste your backup text first."); return; }
+  if (restoreFromText(area.value)) { document.querySelectorAll(".pasteArea").forEach(a => a.value = ""); document.querySelector('[data-tab="log"]').click(); }
+});
+$("#importFile").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => restoreFromText(r.result); r.readAsText(f); e.target.value = "";
+};
+
+function render(){ $("#startBanner").hidden = (db.sessions.length + db.bookings.length) > 0; refreshLists(); renderSessions(); renderBookings(); renderClients(); }
+load(); render();
+</script>
+</body>
+</html>
